@@ -6,5 +6,5 @@ Check assgn3.pdf for more info on project
 
 ----------------------------------------------------------------
 
-Info on program and implementation
+Info on program and implementation:
 
