@@ -3,6 +3,8 @@
 //	Project:		CMSC 312 Assignment 3 - Group Project
 //	Date:			04/26/2021
 //***************************************************************************
+#ifndef supported2
+#define supported2
 
 #include "A3_support.c"
 
@@ -102,7 +104,7 @@ void *consumer(void *thread_n)
     pthread_exit(0);
 }
 
-int main_(int argc, int **argv)
+int main2(int argc, int **argv)
 {
 
     struct timeval tv1, tv2;
@@ -167,3 +169,5 @@ int main_(int argc, int **argv)
 
     return 0;
 }
+
+#endif
