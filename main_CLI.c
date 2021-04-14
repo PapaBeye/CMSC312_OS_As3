@@ -10,60 +10,32 @@
 int main(int argc, int **argv)
 {
 
+    int p_num, t_num;
     struct timeval tv1, tv2;
     gettimeofday(&tv1, NULL);
 
-    buffer_index = 0;
 
-    pthread_mutex_init(&buffer_mutex, NULL);
-
-    data_init(&full_sem, SIZE);
-    data_init(&empty_sem, 0);
-
-    // sem_init(&full_sem, // sem_t *sem
-    //          0, // int pshared. 0 = shared between threads of process,  1 = shared between processes
-    //          SIZE); // unsigned int value. Initial value
-    // sem_init(&empty_sem,
-    //          0,
-    //          0);
-    /* full_sem is initialized to buffer size because SIZE number of
-       producers can add one element to buffer each. They will wait
-       semaphore each time, which will decrement semaphore value.
-       empty_sem is initialized to 0, because buffer starts empty and
-       consumer cannot take any element from it. They will have to wait
-       until producer posts to that semaphore (increments semaphore
-       value) */
-    pthread_t thread[NUMB_THREADS];
-    int thread_numb[NUMB_THREADS];
-    int i;
-    for (i = 0; i < NUMB_THREADS;)
-    {
-        thread_numb[i] = i;
-        pthread_create(thread + i,       // pthread_t *t
-                       NULL,             // const pthread_attr_t *attr
-                       producer,         // void *(*start_routine) (void *)
-                       thread_numb + i); // void *arg
-        i++;
-        thread_numb[i] = i;
-        // playing a bit with thread and thread_numb pointers...
-        pthread_create(&thread[i],       // pthread_t *t
-                       NULL,             // const pthread_attr_t *attr
-                       consumer,         // void *(*start_routine) (void *)
-                       &thread_numb[i]); // void *arg
-        i++;
+    //if there are not 2 arguments in CLI
+    if(argc != 3){
+        printf("Sorry, you didn't input the correct number of arguments.\n");
+        return 1;
     }
+/////////////////////////////////////////////
+    p_num = argv[1];
+    t_num = argv[2];
 
-    for (i = 0; i < NUMB_THREADS; i++)
-        pthread_join(thread[i], NULL);
-
-    pthread_mutex_destroy(&buffer_mutex);
-    // sem_destroy(&full_sem);
-    // sem_destroy(&empty_sem);
-    sem_destroy(&full_sem.gate);
-    sem_destroy(&full_sem.mutex);
-    sem_destroy(&empty_sem.gate);
-    sem_destroy(&empty_sem.mutex);
-
+    int i;
+    for (i = 0; i < p_num; i++) // loop will run n times (n=5)
+    {
+        if (fork() == 0)
+        {
+            printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
+            exit(0);
+        }
+    }
+    for (i = 0; i < p_num; i++) // loop will run n times (n=5)
+        wait(NULL);
+///////////////////////////////////////////////////////////////
     gettimeofday(&tv2, NULL);
 
     printf("Total time = %f seconds\n",
