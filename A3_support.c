@@ -13,8 +13,12 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/wait.h>
 
-#define SIZE 5
+#define SIZE 25
 #define NUMB_THREADS 6
 #define PRODUCER_LOOPS 2
 
@@ -40,10 +44,10 @@ void data_init(data *d, int k)
     d->val = k;
     int init_val = d->val > 0 ? 1 : 0;
     sem_init(&d->gate,  // sem_t *sem
-             0,         // int pshared. 0 = shared between threads of process,  1 = shared between processes
+             1,         // int pshared. 0 = shared between threads of process,  1 = shared between processes
              init_val); // unsigned int value. Initial value
     sem_init(&d->mutex,
-             0,
+             1,
              1);
 }
 
@@ -190,7 +194,7 @@ void display(struct node *r)
     }
     while (r != NULL)
     {
-        printf("pid: %d, job size: %d \n", r->info.bytes, r->info.pid);
+        // printf("pid: %d, job size: %d \n", r->info.pid, r->info.bytes);
         r = r->next;
     }
     printf("\n");
@@ -213,7 +217,7 @@ int count()
 int printRandoms(int lower, int upper,
                   int count)
 {
-    srand(time(0));
+    // srand(time(0));
     int i;
     for (i = 0; i < count; i++)
     {
