@@ -11,7 +11,10 @@ LINKARGS=-lm
 OBJECT_FILES=	main_CLI.o A3_support.o A3_support2.o
 
 # Productions
-all : main_A3
+all : main
+
+main : main_CLI.c
+	$(CC) $(CFLAGS) $< -o $@
 
 main_A3 : $(OBJECT_FILES)
 	$(CC) $(LINKARGS) $(OBJECT_FILES) -o $@

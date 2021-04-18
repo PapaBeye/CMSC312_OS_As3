@@ -17,6 +17,12 @@ job_info *buffer;
 int *buffer_index;
 //mutex to maintain mutual exclusion
 pthread_mutex_t *buffer_mutex;
+//flag to thread exit
+int exit_flag;
+
+void insertbuffer(job_info value);
+job_info dequeuebuffer();
+void *consumer(void *thread_n);
 
 int main(int argc, int **argv)
 {
@@ -65,11 +71,11 @@ int main(int argc, int **argv)
 
     if ((shmid4 = shmget(key4, sizeof(int), IPC_CREAT | 0666)) < 0)
     {
-        perror("shmget_emptysem");
+        perror("shmget_bufferindex");
         exit(1);
     }
 
-    if ((shmid5 = shmget(key5, 25 * sizeof(node), IPC_CREAT | 0666)) < 0)
+    if ((shmid5 = shmget(key5, SIZE * sizeof(job_info), IPC_CREAT | 0666)) < 0)
     {
         perror("shmget_buffer");
         exit(1);
@@ -113,25 +119,35 @@ int main(int argc, int **argv)
     data_init(full_sem, SIZE);
     data_init(empty_sem, 0);
 
-    int i,j,rand_jobs, rand_bytes;
+    //creating threads
+    pthread_t thread[t_num];
+    int thread_numb[t_num];
+    int i;
+    for (i = 0; i < t_num;)
+    {
+        thread_numb[i] = i;
+        // playing a bit with thread and thread_numb pointers...
+        pthread_create(&thread[i],       // pthread_t *t
+                       NULL,             // const pthread_attr_t *attr
+                       consumer,         // void *(*start_routine) (void *)
+                       &thread_numb[i]); // void *arg
+        i++;
+    }
+
+    
+
+    //forking processes
+    int rand_jobs, rand_bytes;
     for (i = 0; i < p_num; i++) 
     {
         //enter new child process, start of producer
         if (fork() == 0)
         {
             srand(getpid());
-            // rand_jobs = printRandoms(1, 25, 1);
-            rand_jobs = (rand() % (25)) + 1;
+            rand_jobs = printRandoms(1, 25, 1);
+            // rand_jobs = (rand() % (25)) + 1;
             printf("rand_jobs: %d \n", rand_jobs);
-            // for(j=0;j<rand_jobs;j++)
-            // {
-            //     rand_bytes = (rand() % (900 + 1)) + 100;
-            //     printf("rand bytes: %d \n", rand_bytes);
-            //     job_info new_info;
-            //     new_info.pid = getpid();
-            //     new_info.bytes = rand_bytes;
-            //     insert(new_info);
-            // }
+            
 
             int wait;
             int j=0;
@@ -152,12 +168,12 @@ int main(int argc, int **argv)
                 and when this thread tried to insert to buffer there would be
                 a buffer overflow error */
 
+                printf("csem: %d \n", full_sem->val);
+                printf("csem: %d \n", empty_sem->val);
                 Pc(full_sem);
 
                 pthread_mutex_lock(buffer_mutex); /* protecting critical section */
-                wait = insertbuffer(new_info);
-                if(wait)
-                    j--;
+                insertbuffer(new_info);
                 pthread_mutex_unlock(buffer_mutex);
 
                 Vc(empty_sem);
@@ -165,21 +181,28 @@ int main(int argc, int **argv)
                 printf("Producer %d added %d byte job to buffer\n",i, new_info.bytes);
             }
 
-            // int cnt = count(head);
-            // printf("count: %d, %d \n", cnt, j);
-            // display(head);
-
+            
             printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
             exit(0);
         }
+
+        // wait(NULL);
     }
+
     for (i = 0; i < p_num; i++) // loop will run n times (n=5)
         wait(NULL);
+
+    //set flag to allow threads to exit when queue
+    exit_flag = 1;
+
+    for (i = 0; i < t_num; i++)
+        pthread_join(thread[i], NULL);
 
     int k;
     for(k=0;k<SIZE;k++)
         printf("element %02d, bytes: %04d, pid: %04d \n",k,buffer[k].bytes,buffer[k].pid);
     
+    printf("flag: %d, index: %d \n",exit_flag, *buffer_index);
 
     // int cnt = count(head);
     // printf("count: %d, %d \n", cnt, j);
@@ -198,16 +221,58 @@ int main(int argc, int **argv)
 }
 
 //inserts job into buffer, returns 0 on success, 1 on failure
-int insertbuffer(job_info value)
+void insertbuffer(job_info value)
 {
     if (*buffer_index < SIZE)
     {
         buffer[(*buffer_index)++] = value;
-        return 0;
+        // return 0;
     }
     else
     {
         printf("Buffer overflow\n");
-        return 1;
+        // return 1;
     }
+}
+
+job_info dequeuebuffer()
+{
+    if (*buffer_index > 0)
+    {
+        return buffer[--(*buffer_index)]; // buffer_index-- would be error!
+    }
+    else
+    {
+        printf("Buffer underflow\n");
+    }
+    job_info n;
+    return n;
+}
+
+void *consumer(void *thread_n)
+{
+    int thread_numb = *(int *)thread_n;
+    int i = 0;
+    job_info ret;
+    while (1)
+    {
+        if(exit_flag && *buffer_index == 0){
+            printf("entered break for thread %d, flag = %d\n", thread_numb, exit_flag);
+            pthread_exit(0);
+            break;
+        }
+        // sem_wait(&empty_sem);
+        Pc(empty_sem);
+
+        /* there could be race condition here, that could cause
+           buffer underflow error */
+        pthread_mutex_lock(buffer_mutex);
+        ret = dequeuebuffer();
+        pthread_mutex_unlock(buffer_mutex);
+
+        Vc(full_sem);
+        // sem_post(&full_sem); // post (increment) fullbuffer semaphore
+        printf("Consumer %d dequeue %d bytes, %d pid from buffer\n", thread_numb, ret.bytes,ret.pid);
+    }
+    pthread_exit(0);
 }
