@@ -19,6 +19,10 @@ int *buffer_index;
 pthread_mutex_t *buffer_mutex;
 //flag to thread exit
 int exit_flag;
+//variables to all threads
+int p_num, t_num;
+pthread_t thread[100];
+int thread_numb[100];
 
 void insertbuffer(job_info value);
 job_info dequeuebuffer();
@@ -28,7 +32,7 @@ int main(int argc, int **argv)
 {
     struct timeval tv1, tv2;
     gettimeofday(&tv1, NULL);
-    int p_num, t_num;
+    
     int shmid1, shmid2, shmid3, shmid4, shmid5;
     key_t key1, key2, key3, key4, key5;
 
@@ -120,8 +124,6 @@ int main(int argc, int **argv)
     data_init(empty_sem, 0);
 
     //creating threads
-    pthread_t thread[t_num];
-    int thread_numb[t_num];
     int i;
     for (i = 0; i < t_num;)
     {
@@ -134,7 +136,7 @@ int main(int argc, int **argv)
         i++;
     }
 
-    
+    srand(getpid());    
 
     //forking processes
     int rand_jobs, rand_bytes;
@@ -179,6 +181,9 @@ int main(int argc, int **argv)
                 Vc(empty_sem);
                 // sem_post(&empty_sem); // post (increment) emptybuffer semaphore
                 printf("Producer %d added %d byte job to buffer\n",i, new_info.bytes);
+                wait = printRandoms(1,10,1);
+                // usleep(wait*100000);
+                usleep(new_info.bytes);
             }
 
             
@@ -195,6 +200,20 @@ int main(int argc, int **argv)
     //set flag to allow threads to exit when queue
     exit_flag = 1;
 
+    while(1){
+        if (exit_flag++ && *buffer_index == 0)
+        {
+            printf("entered break for thread %d, flag = %d\n", thread_numb, exit_flag);
+            int h;
+            for (h = 0; h < t_num; h++)
+            {
+                pthread_cancel(thread[h]);
+            }
+            // pthread_exit(0);
+            break;
+        }
+    }
+
     for (i = 0; i < t_num; i++)
         pthread_join(thread[i], NULL);
 
@@ -208,6 +227,10 @@ int main(int argc, int **argv)
     // printf("count: %d, %d \n", cnt, j);
     // display(head);
 
+    shmctl(shmid1, IPC_RMID, NULL);
+    shmctl(shmid2, IPC_RMID, NULL);
+    shmctl(shmid3, IPC_RMID, NULL);
+    shmctl(shmid4, IPC_RMID, NULL);
     shmctl(shmid5, IPC_RMID, NULL);
 
     ///////////////////////////////////////////////////////////////
@@ -253,11 +276,19 @@ void *consumer(void *thread_n)
 {
     int thread_numb = *(int *)thread_n;
     int i = 0;
+    int rand;
     job_info ret;
+    
     while (1)
     {
         if(exit_flag && *buffer_index == 0){
             printf("entered break for thread %d, flag = %d\n", thread_numb, exit_flag);
+            int h;
+            for(h=0;h<t_num;h++){
+                if(h==thread_numb)
+                    continue;
+                pthread_cancel(thread[h]);
+            }
             pthread_exit(0);
             break;
         }
@@ -273,6 +304,7 @@ void *consumer(void *thread_n)
         Vc(full_sem);
         // sem_post(&full_sem); // post (increment) fullbuffer semaphore
         printf("Consumer %d dequeue %d bytes, %d pid from buffer\n", thread_numb, ret.bytes,ret.pid);
+        usleep(ret.bytes*1000);
     }
     pthread_exit(0);
 }
