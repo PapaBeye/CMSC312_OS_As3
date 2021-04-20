@@ -185,6 +185,6 @@ void isEmpty(struct Buffer *buffer)
 	sem_wait(&(buffer->emptyGate));
 	sem_wait(&(buffer->mutex));
 	sem_post(&(buffer->mutex));
-	sem_post(&(buffer->emptygate));
+	sem_post(&(buffer->emptyGate));
 	return;
 }
