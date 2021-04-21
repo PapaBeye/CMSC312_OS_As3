@@ -74,145 +74,146 @@ void Vc(data *cs)
 
 ////////////////////////////////////////////////////////////////////
 
-struct node
-{
-    job_info info;
-    struct node *next;
-}*head;
+// struct node
+// {
+//     job_info info;
+//     struct node *next;
+// }*head;
 
-typedef struct node node;
+// typedef struct node node;
 
-void append(job_info info)
-{
-    struct node *temp, *right;
-    temp = (struct node *)malloc(sizeof(struct node));
-    temp->info = info;
-    right = (struct node *)head;
-    while (right->next != NULL)
-        right = right->next;
-    right->next = temp;
-    right = temp;
-    right->next = NULL;
-}
+// void append(job_info info)
+// {
+//     struct node *temp, *right;
+//     temp = (struct node *)malloc(sizeof(struct node));
+//     temp->info = info;
+//     right = (struct node *)head;
+//     while (right->next != NULL)
+//         right = right->next;
+//     right->next = temp;
+//     right = temp;
+//     right->next = NULL;
+// }
 
-void add(job_info info)
-{
-    struct node *temp;
-    temp = (struct node *)malloc(sizeof(struct node));
-    temp->info = info;
-    if (head == NULL)
-    {
-        head = temp;
-        head->next = NULL;
-    }
-    else
-    {
-        temp->next = head;
-        head = temp;
-    }
-}
-void addafter(job_info info, int loc)
-{
-    int i;
-    struct node *temp, *left, *right;
-    right = head;
-    for (i = 1; i < loc; i++)
-    {
-        left = right;
-        right = right->next;
-    }
-    temp = (struct node *)malloc(sizeof(struct node));
-    temp->info = info;
-    left->next = temp;
-    left = temp;
-    left->next = right;
-    return;
-}
+// void add(job_info info)
+// {
+//     struct node *temp;
+//     temp = (struct node *)malloc(sizeof(struct node));
+//     temp->info = info;
+//     if (head == NULL)
+//     {
+//         head = temp;
+//         head->next = NULL;
+//     }
+//     else
+//     {
+//         temp->next = head;
+//         head = temp;
+//     }
+// }
+// void addafter(job_info info, int loc)
+// {
+//     int i;
+//     struct node *temp, *left, *right;
+//     right = head;
+//     for (i = 1; i < loc; i++)
+//     {
+//         left = right;
+//         right = right->next;
+//     }
+//     temp = (struct node *)malloc(sizeof(struct node));
+//     temp->info = info;
+//     left->next = temp;
+//     left = temp;
+//     left->next = right;
+//     return;
+// }
 
-void insert(job_info new_info)
-{
-    int c = 0;
-    struct node *temp;
-    temp = head;
-    if (temp == NULL)
-    {
-        add(new_info);
-    }
-    else
-    {
-        while (temp != NULL)
-        {
-            if (temp->info.bytes < new_info.bytes)
-                c++;
-            temp = temp->next;
-        }
-        if (c == 0)
-            add(new_info);
-        else if (c < count())
-            addafter(new_info, ++c);
-        else
-            append(new_info);
-    }
-}
+// void insert(job_info new_info)
+// {
+//     int c = 0;
+//     struct node *temp;
+//     temp = head;
+//     if (temp == NULL)
+//     {
+//         add(new_info);
+//     }
+//     else
+//     {
+//         while (temp != NULL)
+//         {
+//             if (temp->info.bytes < new_info.bytes)
+//                 c++;
+//             temp = temp->next;
+//         }
+//         if (c == 0)
+//             add(new_info);
+//         else if (c < count())
+//             addafter(new_info, ++c);
+//         else
+//             append(new_info);
+//     }
+// }
 
-int delete (int num)
-{
-    struct node *temp, *prev;
-    temp = head;
-    while (temp != NULL)
-    {
-        if (temp->info.bytes == num)
-        {
-            if (temp == head)
-            {
-                head = temp->next;
-                free(temp);
-                return 1;
-            }
-            else
-            {
-                prev->next = temp->next;
-                free(temp);
-                return 1;
-            }
-        }
-        else
-        {
-            prev = temp;
-            temp = temp->next;
-        }
-    }
-    return 0;
-}
+// int delete (int num)
+// {
+//     struct node *temp, *prev;
+//     temp = head;
+//     while (temp != NULL)
+//     {
+//         if (temp->info.bytes == num)
+//         {
+//             if (temp == head)
+//             {
+//                 head = temp->next;
+//                 free(temp);
+//                 return 1;
+//             }
+//             else
+//             {
+//                 prev->next = temp->next;
+//                 free(temp);
+//                 return 1;
+//             }
+//         }
+//         else
+//         {
+//             prev = temp;
+//             temp = temp->next;
+//         }
+//     }
+//     return 0;
+// }
 
-void display(struct node *r)
-{
-    r = head;
-    if (r == NULL)
-    {
-        return;
-    }
-    while (r != NULL)
-    {
-        // printf("pid: %d, job size: %d \n", r->info.pid, r->info.bytes);
-        r = r->next;
-    }
-    printf("\n");
-}
+// void display(struct node *r)
+// {
+//     r = head;
+//     if (r == NULL)
+//     {
+//         return;
+//     }
+//     while (r != NULL)
+//     {
+//         // printf("pid: %d, job size: %d \n", r->info.pid, r->info.bytes);
+//         r = r->next;
+//     }
+//     printf("\n");
+// }
 
-int count()
-{
-    struct node *n;
-    int c = 0;
-    n = head;
-    while (n != NULL)
-    {
-        n = n->next;
-        c++;
-    }
-    return c;
-}
+// int count()
+// {
+//     struct node *n;
+//     int c = 0;
+//     n = head;
+//     while (n != NULL)
+//     {
+//         n = n->next;
+//         c++;
+//     }
+//     return c;
+// }
 
+/////////////////////////////////////////////////////////////////////
 //function to return random number in range, must of used srand()
 int printRandoms(int lower, int upper,
                   int count)

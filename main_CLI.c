@@ -23,6 +23,8 @@ int exit_flag;
 int p_num, t_num;
 pthread_t thread[100];
 int thread_numb[100];
+//total number of rand_jobs
+int total_jobs;
 
 void insertbuffer(job_info value);
 job_info dequeuebuffer();
@@ -51,8 +53,8 @@ int main(int argc, int **argv)
 
 ////////////////////////////////////////////
 
-    p_num = atoi(argv[1]);
-    t_num = atoi(argv[2]);
+    p_num = atoi((char *)argv[1]);
+    t_num = atoi((char *)argv[2]);
 
     //setting up shared memory for global vars
     if ((shmid1 = shmget(key1, sizeof(data), IPC_CREAT | 0666)) < 0)
@@ -86,31 +88,31 @@ int main(int argc, int **argv)
     }
 
     //attaching shm to our data space
-    if ((full_sem = shmat(shmid1, NULL, 0)) == (char *)-1)
+    if ((full_sem = shmat(shmid1, NULL, 0)) == (data *)-1)
     {
         perror("shmat1");
         exit(1);
     }
 
-    if ((empty_sem = shmat(shmid2, NULL, 0)) == (char *)-1)
+    if ((empty_sem = shmat(shmid2, NULL, 0)) == (data *)-1)
     {
         perror("shmat2");
         exit(1);
     }
 
-    if ((buffer_mutex = shmat(shmid3, NULL, 0)) == (char *)-1)
+    if ((buffer_mutex = shmat(shmid3, NULL, 0)) == (pthread_mutex_t *)-1)
     {
         perror("shmat3");
         exit(1);
     }
 
-    if ((buffer_index = shmat(shmid4, NULL, 0)) == (char *)-1)
+    if ((buffer_index = shmat(shmid4, NULL, 0)) == (int *)-1)
     {
         perror("shmat3");
         exit(1);
     }
 
-    if ((buffer = shmat(shmid5, NULL, 0)) == (char *)-1)
+    if ((buffer = shmat(shmid5, NULL, 0)) == (job_info *)-1)
     {
         perror("shmat3");
         exit(1);
@@ -203,7 +205,7 @@ int main(int argc, int **argv)
     while(1){
         if (exit_flag++ && *buffer_index == 0)
         {
-            printf("entered break for thread %d, flag = %d\n", thread_numb, exit_flag);
+            printf("entered break for thread %d, flag = %d\n", *thread_numb, exit_flag);
             int h;
             for (h = 0; h < t_num; h++)
             {
@@ -214,6 +216,11 @@ int main(int argc, int **argv)
         }
     }
 
+    // sem_wait(&(buffer->emptyGate));
+    // sem_wait(&(buffer->mutex));
+    // sem_post(&(buffer->mutex));
+    // sem_post(&(buffer->emptyGate));
+
     for (i = 0; i < t_num; i++)
         pthread_join(thread[i], NULL);
 
@@ -222,6 +229,7 @@ int main(int argc, int **argv)
         printf("element %02d, bytes: %04d, pid: %04d \n",k,buffer[k].bytes,buffer[k].pid);
     
     printf("flag: %d, index: %d \n",exit_flag, *buffer_index);
+    printf("total_jobs: %d \n",total_jobs);
 
     // int cnt = count(head);
     // printf("count: %d, %d \n", cnt, j);
@@ -299,6 +307,7 @@ void *consumer(void *thread_n)
            buffer underflow error */
         pthread_mutex_lock(buffer_mutex);
         ret = dequeuebuffer();
+        total_jobs++;
         pthread_mutex_unlock(buffer_mutex);
 
         Vc(full_sem);
