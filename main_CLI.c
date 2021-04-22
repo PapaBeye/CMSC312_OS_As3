@@ -316,6 +316,7 @@ void *consumer(void *thread_n)
         pthread_mutex_lock(buffer_mutex);
         ret = dequeuebuffer();
         total_jobs++;
+        gettimeofday(&tv2, NULL);
         total_wait += (double)(tv2.tv_usec - ret.stopwatch.tv_usec) / 1000000 +
                (double)(tv2.tv_sec - ret.stopwatch.tv_sec);
 
