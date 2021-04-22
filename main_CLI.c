@@ -25,6 +25,8 @@ pthread_t thread[100];
 int thread_numb[100];
 //total number of rand_jobs
 int total_jobs;
+//total waiting time
+double total_wait;
 
 void insertbuffer(job_info value);
 job_info dequeuebuffer();
@@ -34,7 +36,7 @@ int main(int argc, int **argv)
 {
     struct timeval tv1, tv2;
     gettimeofday(&tv1, NULL);
-    
+
     int shmid1, shmid2, shmid3, shmid4, shmid5;
     key_t key1, key2, key3, key4, key5;
 
@@ -43,6 +45,8 @@ int main(int argc, int **argv)
     key3 = 135791113;
     key4 = 987654321;
     key5 = 147258369;
+    total_wait = 0;
+    total_jobs = 0;
 
     //if there are not 2 arguments in CLI
     if (argc != 3)
@@ -163,6 +167,7 @@ int main(int argc, int **argv)
                 job_info new_info;
                 new_info.pid = getpid();
                 new_info.bytes = rand_bytes;
+                gettimeofday(&(new_info.stopwatch), NULL);
                 // sleep(rand() % 10);
 
                 // sem_wait(&full_sem); // sem=0: wait. sem>0: go and decrement it
@@ -225,11 +230,13 @@ int main(int argc, int **argv)
         pthread_join(thread[i], NULL);
 
     int k;
-    for(k=0;k<SIZE;k++)
-        printf("element %02d, bytes: %04d, pid: %04d \n",k,buffer[k].bytes,buffer[k].pid);
+    // for(k=0;k<SIZE;k++)
+    //     printf("element %02d, bytes: %04d, pid: %04d \n",k,buffer[k].bytes,buffer[k].pid);
     
     printf("flag: %d, index: %d \n",exit_flag, *buffer_index);
     printf("total_jobs: %d \n",total_jobs);
+    printf("total wait time: %f \n", total_wait);
+    printf("avg wait time: %f \n", total_wait/total_jobs);
 
     // int cnt = count(head);
     // printf("count: %d, %d \n", cnt, j);
@@ -286,6 +293,7 @@ void *consumer(void *thread_n)
     int i = 0;
     int rand;
     job_info ret;
+    struct timeval tv2;
     
     while (1)
     {
@@ -308,6 +316,9 @@ void *consumer(void *thread_n)
         pthread_mutex_lock(buffer_mutex);
         ret = dequeuebuffer();
         total_jobs++;
+        total_wait += (double)(tv2.tv_usec - ret.stopwatch.tv_usec) / 1000000 +
+               (double)(tv2.tv_sec - ret.stopwatch.tv_sec);
+
         pthread_mutex_unlock(buffer_mutex);
 
         Vc(full_sem);

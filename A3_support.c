@@ -1,5 +1,5 @@
 //***************************************************************************
-//	Engineer:		Omar Amr
+//	Engineer:		Omar Amr,Papa Beye, McCrae Smith
 //	Project:		CMSC 312 Assignment 2
 //	Date:			03/26/2021
 //***************************************************************************
@@ -22,6 +22,7 @@
 #define NUMB_THREADS 6
 #define PRODUCER_LOOPS 2
 
+typedef struct timeval timeval;
 struct data
 {
     int val;
@@ -34,6 +35,7 @@ typedef struct data data;
 struct job_info
 {
     data csem;
+    struct timeval stopwatch;
     pid_t pid;
     int bytes;
 };
