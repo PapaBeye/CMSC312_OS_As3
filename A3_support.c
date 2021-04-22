@@ -34,7 +34,6 @@ typedef struct data data;
 
 struct job_info
 {
-    data csem;
     struct timeval stopwatch;
     pid_t pid;
     int bytes;
