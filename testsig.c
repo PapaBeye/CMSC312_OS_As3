@@ -1,7 +1,7 @@
-//SJF Global Queue testing program
-//McCrae Smith, Professor Ghosh, CMSC 312, 4/20/2021
+//SJF Global Queue testing  signal handler program
+//McCrae Smith & Papa Beye, Professor Ghosh, CMSC 312, 4/20/2021
 //Full version, all assignment features included
-//Compile using gcc -lpthread SJFFull.c -o SJFFull
+// make && ./app NUMPROCESSES NUMTHREADS 
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,3 +1,9 @@
+
+/* Papa Beye
+ CMSC 312 SPRING 21
+ 4/23/2021 
+ Professor Ghosh
+ */
 #include "signal_handler.h"
 #include <stdlib.h>
 #include <unistd.h>
