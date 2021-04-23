@@ -73,6 +73,21 @@ void Vc(data *cs)
     sem_post(&cs->mutex);
 }
 
+//function to return random number in range, must of used srand()
+int printRandoms(int lower, int upper,
+                 int count)
+{
+    // srand(time(0));
+    int i;
+    for (i = 0; i < count; i++)
+    {
+        int num = (rand() %
+                   (upper - lower + 1)) +
+                  lower;
+        return num;
+    }
+}
+
 ////////////////////////////////////////////////////////////////////
 
 // struct node
@@ -215,20 +230,6 @@ void Vc(data *cs)
 // }
 
 /////////////////////////////////////////////////////////////////////
-//function to return random number in range, must of used srand()
-int printRandoms(int lower, int upper,
-                  int count)
-{
-    // srand(time(0));
-    int i;
-    for (i = 0; i < count; i++)
-    {
-        int num = (rand() %
-                   (upper - lower + 1)) +
-                  lower;
-        return num;
-    }
-}
 
 // int sample_run()
 // {

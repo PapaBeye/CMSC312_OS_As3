@@ -6,7 +6,9 @@
 
 #include "A3_support.c"
 // #include "A3_support2.c"
-
+///////////////////////////////////////////////////////////////
+//need to convert global array of pthread_t to dynamiclly alloc
+///////////////////////////////////////////////////////////////
 struct node *n;
 //counting sems
 data *full_sem;
@@ -16,7 +18,7 @@ job_info *buffer;
 //LIFO buffer index
 int *buffer_index;
 //mutex to maintain mutual exclusion
-pthread_mutex_t *buffer_mutex;
+sem_t *buffer_mutex;
 //flag to thread exit
 int exit_flag;
 //variables to all threads
@@ -55,10 +57,12 @@ int main(int argc, int **argv)
         exit(1);
     }
 
-////////////////////////////////////////////
+    ////////////////////////////////////////////
 
     p_num = atoi((char *)argv[1]);
     t_num = atoi((char *)argv[2]);
+
+
 
     //setting up shared memory for global vars
     if ((shmid1 = shmget(key1, sizeof(data), IPC_CREAT | 0666)) < 0)
@@ -73,7 +77,7 @@ int main(int argc, int **argv)
         exit(1);
     }
 
-    if ((shmid3 = shmget(key3, sizeof(pthread_mutex_t), IPC_CREAT | 0666)) < 0)
+    if ((shmid3 = shmget(key3, sizeof(sem_t), IPC_CREAT | 0666)) < 0)
     {
         perror("shmget_buffermutex");
         exit(1);
@@ -104,7 +108,7 @@ int main(int argc, int **argv)
         exit(1);
     }
 
-    if ((buffer_mutex = shmat(shmid3, NULL, 0)) == (pthread_mutex_t *)-1)
+    if ((buffer_mutex = shmat(shmid3, NULL, 0)) == (sem_t *)-1)
     {
         perror("shmat3");
         exit(1);
@@ -124,7 +128,10 @@ int main(int argc, int **argv)
 
     *buffer_index = 0;
 
-    pthread_mutex_init(buffer_mutex, NULL);
+    // pthread_mutex_init(buffer_mutex, NULL);
+    sem_init(buffer_mutex, // sem_t *sem
+             1,            // int pshared. 0 = shared between threads of process,  1 = shared between processes
+             1);
 
     data_init(full_sem, SIZE);
     data_init(empty_sem, 0);
@@ -142,11 +149,11 @@ int main(int argc, int **argv)
         i++;
     }
 
-    srand(getpid());    
+    srand(getpid());
 
     //forking processes
     int rand_jobs, rand_bytes;
-    for (i = 0; i < p_num; i++) 
+    for (i = 0; i < p_num; i++)
     {
         //enter new child process, start of producer
         if (fork() == 0)
@@ -155,12 +162,11 @@ int main(int argc, int **argv)
             rand_jobs = printRandoms(1, 25, 1);
             // rand_jobs = (rand() % (25)) + 1;
             printf("rand_jobs: %d \n", rand_jobs);
-            
 
             int wait;
-            int j=0;
+            int j = 0;
             // while (j++ < rand_jobs)
-            for(j=0;j<rand_jobs;j++)
+            for (j = 0; j < rand_jobs; j++)
             {
                 rand_bytes = (rand() % (900 + 1)) + 100;
                 printf("rand bytes: %d \n", rand_bytes);
@@ -181,19 +187,18 @@ int main(int argc, int **argv)
                 printf("csem: %d \n", empty_sem->val);
                 Pc(full_sem);
 
-                pthread_mutex_lock(buffer_mutex); /* protecting critical section */
+                sem_wait(buffer_mutex); /* protecting critical section */
                 insertbuffer(new_info);
-                pthread_mutex_unlock(buffer_mutex);
+                sem_post(buffer_mutex);
 
                 Vc(empty_sem);
                 // sem_post(&empty_sem); // post (increment) emptybuffer semaphore
-                printf("Producer %d added %d byte job to buffer\n",i, new_info.bytes);
-                wait = printRandoms(1,10,1);
+                printf("Producer <%d> added <%d> to buffer\n", i, new_info.bytes);
+                wait = printRandoms(1, 10, 1);
                 // usleep(wait*100000);
-                usleep(new_info.bytes);
+                usleep(new_info.bytes*1000);
             }
 
-            
             printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
             exit(0);
         }
@@ -207,10 +212,11 @@ int main(int argc, int **argv)
     //set flag to allow threads to exit when queue
     exit_flag = 1;
 
-    while(1){
-        if (exit_flag++ && *buffer_index == 0)
+    while (1)
+    {
+        if (*buffer_index == 0)
         {
-            printf("entered break for thread %d, flag = %d\n", *thread_numb, exit_flag);
+            // printf("entered break for thread %d, flag = %d\n", *thread_numb, exit_flag);
             int h;
             for (h = 0; h < t_num; h++)
             {
@@ -232,15 +238,15 @@ int main(int argc, int **argv)
     int k;
     // for(k=0;k<SIZE;k++)
     //     printf("element %02d, bytes: %04d, pid: %04d \n",k,buffer[k].bytes,buffer[k].pid);
-    
-    printf("flag: %d, index: %d \n",exit_flag, *buffer_index);
-    printf("total_jobs: %d \n",total_jobs);
-    printf("total wait time: %f \n", total_wait);
-    printf("avg wait time: %f \n", total_wait/total_jobs);
 
-    // int cnt = count(head);
-    // printf("count: %d, %d \n", cnt, j);
-    // display(head);
+    // printf("flag: %d, index: %d \n", exit_flag, *buffer_index);
+    printf("total_jobs: %d \n", total_jobs);
+    printf("total wait time: %f \n", total_wait);
+    printf("All jobs completed, average waiting time: %f seconds \n", total_wait / total_jobs);
+
+
+
+    sem_destroy(buffer_mutex);
 
     shmctl(shmid1, IPC_RMID, NULL);
     shmctl(shmid2, IPC_RMID, NULL);
@@ -251,7 +257,7 @@ int main(int argc, int **argv)
     ///////////////////////////////////////////////////////////////
     gettimeofday(&tv2, NULL);
 
-    printf("Total time = %f seconds\n",
+    printf("Program completed, total processing time = %f seconds\n",
            (double)(tv2.tv_usec - tv1.tv_usec) / 1000000 +
                (double)(tv2.tv_sec - tv1.tv_sec));
 
@@ -294,38 +300,39 @@ void *consumer(void *thread_n)
     int rand;
     job_info ret;
     struct timeval tv2;
-    
+
     while (1)
     {
-        if(exit_flag && *buffer_index == 0){
-            printf("entered break for thread %d, flag = %d\n", thread_numb, exit_flag);
-            int h;
-            for(h=0;h<t_num;h++){
-                if(h==thread_numb)
-                    continue;
-                pthread_cancel(thread[h]);
-            }
-            pthread_exit(0);
-            break;
-        }
+        // if(exit_flag && *buffer_index == 0){
+        //     printf("entered break for thread %d, flag = %d\n", thread_numb, exit_flag);
+        //     int h;
+        //     for(h=0;h<t_num;h++){
+        //         if(h==thread_numb)
+        //             continue;
+        //         pthread_cancel(thread[h]);
+        //     }
+        //     pthread_exit(0);
+        //     break;
+        // }
         // sem_wait(&empty_sem);
         Pc(empty_sem);
 
         /* there could be race condition here, that could cause
            buffer underflow error */
-        pthread_mutex_lock(buffer_mutex);
+        sem_wait(buffer_mutex);
         ret = dequeuebuffer();
         total_jobs++;
         gettimeofday(&tv2, NULL);
         total_wait += (double)(tv2.tv_usec - ret.stopwatch.tv_usec) / 1000000 +
-               (double)(tv2.tv_sec - ret.stopwatch.tv_sec);
+                      (double)(tv2.tv_sec - ret.stopwatch.tv_sec);
 
-        pthread_mutex_unlock(buffer_mutex);
+        sem_post(buffer_mutex);
 
         Vc(full_sem);
         // sem_post(&full_sem); // post (increment) fullbuffer semaphore
-        printf("Consumer %d dequeue %d bytes, %d pid from buffer\n", thread_numb, ret.bytes,ret.pid);
-        usleep(ret.bytes*1000);
+        printf("Consumer %d dequeue %d bytes, %d pid from buffer\n", thread_numb, ret.bytes, ret.pid);
+        printf("Buffer index: %d \n", *buffer_index);
+        usleep(ret.bytes * 1000);
     }
     pthread_exit(0);
 }
