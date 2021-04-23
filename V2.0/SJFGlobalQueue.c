@@ -167,6 +167,7 @@ void removeBuffer(int result[2], struct Buffer *buffer)
 double destroyBuffer(struct Buffer *buffer)
 {
     sem_destroy(&(buffer->mutex));//Destroy mutex lock
+	sem_destroy(&(buffer->emptyGate));//Destroy emptyGate mutex
     CSem_remove(&(buffer->full_sem)); //sem_destroy(&(buffer->full_sem));//Destroy full semaphore
     CSem_remove(&(buffer->empty_sem)); //sem_destroy(&(buffer->empty_sem));//Destroy empty semaphore
     return(buffer->totalWaiting / buffer->jobs); //Divide total waiting time of all jobs by number of jobs for average waiting time
