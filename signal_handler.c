@@ -1,50 +1,42 @@
 #include "signal_handler.h"
 #include <stdlib.h>
+#include <unistd.h>
 
 static void handle_sigs(int sig)
 {
-    /* TODO 
-     *
-     * 1) kill processes
-     * 2) Kill threads
-     * 3) deallocate use destructors EZ
-     */ 
+    shmctl(_sigdata->shmID, IPC_RMID, NULL);
     char str[80];
-    sprintf(str, "signal %d recv", sig);
-    switch (sig)
-    {
-    case SIGHUP :
+    sprintf(str, "signal %d recv\n", sig);
+    puts(str);
+    int i =0 ;
+    while(i < (_sigdata->_numPr -1)){
+        sprintf(str, "Killing child process %d\n", _sigdata->prcs[i]);
         puts(str);
-        break;
-    case SIGINT :
-        puts(str);
-        break;
-    case SIGQUIT:
-        puts(str);
-        break;
-    case SIGFPE :
-        puts(str);
-        break;
-    case SIGKILL:
-        puts(str);
-        break;
-    case SIGALRM:
-        puts(str);
-        break;
-    case SIGTERM:
-        puts(str);
-        break;
-    default:
-        puts(str);
-        break;
+        if (kill((pid_t) _sigdata->prcs[i], SIGINT)== -1){
+            fputs("An error occurred while killing a child process, Sending kill sig again \n", stderr);
+            kill((pid_t) _sigdata->prcs[i], SIGINT);
+        }
+        waitpid(_sigdata->prcs[i], NULL, 1);
+        i++;
     }
-
+    i = 0;
+    sprintf(str, "Killing threads\n");
+    puts(str);
+    while(i < _sigdata->_numTh){
+        if (pthread_kill(_sigdata->thrds[i], 9) != 0){
+            fputs("An error occurred while Canceling thread\n", stderr);
+        }
+        i++;
+    }
+    puts("Killing Self");
+    kill(getpid(), 9);
 }
 
 
 
-void init_sig_hander()
+void init_sig_hander(sig_dt* sigdata)
 {
+    _sigdata = sigdata;
     if (signal(SIGHUP, handle_sigs)  == SIG_ERR) {
         fputs("An error occurred while setting SIGHUP handler.\n", stderr);
         exit(EXIT_FAILURE);
@@ -69,7 +61,9 @@ void init_sig_hander()
         fputs("An error occurred while setting SIGTERM handler.\n", stderr);
         exit(EXIT_FAILURE);
     }
+    if (signal(SIGSEGV, handle_sigs) == SIG_ERR) {
+        fputs("An error occurred while setting SIGSEGV handler.\n", stderr);
+        exit(EXIT_FAILURE);
+    }
 }
-
-
 

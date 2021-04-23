@@ -2,10 +2,26 @@
 #include <stdio.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
 
-pid_t *prcs;
-void init_sig_hander();
+struct sigdata
+{
+    int *prcs;
+    int *thrdsId;
+    pthread_t *thrds;
+    int _numTh;
+    int _numPr;
+    int shmID;
+};
+
+typedef struct sigdata sig_dt;
+
+
+sig_dt* _sigdata;
+
+void init_sig_hander(sig_dt* sigdata);
 
 static void handle_sigs(int sig);
 
