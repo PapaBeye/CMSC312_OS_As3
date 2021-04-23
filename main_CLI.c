@@ -1,15 +1,12 @@
 //***************************************************************************
 //	Engineers:		Omar Amr, McCrae Smith, Papa Beye
 //	Project:		CMSC 312 Assignment 3 - Group Project
-//	Date:			04/26/2021
+//	Date:			04/23/2021
+//  Description:    Main file for the LIFO implmentation of print server
 //***************************************************************************
 
 #include "A3_support.c"
-// #include "A3_support2.c"
-///////////////////////////////////////////////////////////////
-//need to convert global array of pthread_t to dynamiclly alloc
-///////////////////////////////////////////////////////////////
-struct node *n;
+
 //counting sems
 data *full_sem;
 data *empty_sem;
@@ -17,29 +14,38 @@ data *empty_sem;
 job_info *buffer;
 //LIFO buffer index
 int *buffer_index;
-//mutex to maintain mutual exclusion
+//mutex to maintain mutual exclusion of buffer
 sem_t *buffer_mutex;
 //flag to thread exit
 int exit_flag;
 //variables to all threads
 int p_num, t_num;
-pthread_t thread[100];
-int thread_numb[100];
+pthread_t *thread; //array of threads
+int *thread_numb;  //array of thread nums
 //total number of rand_jobs
 int total_jobs;
 //total waiting time
 double total_wait;
+//shared memory seg uds
+int shmid1, shmid2, shmid3, shmid4, shmid5;
+//array of process ids to cancel early
+int *processIDs;
+//keeps track of how many forks have been done, always <= p_tum
+int produced;
 
+//function stubs
 void insertbuffer(job_info value);
 job_info dequeuebuffer();
 void *consumer(void *thread_n);
+void isEmpty();
+void free_all();
+void sig_handler(int sig);
 
 int main(int argc, int **argv)
 {
     struct timeval tv1, tv2;
     gettimeofday(&tv1, NULL);
 
-    int shmid1, shmid2, shmid3, shmid4, shmid5;
     key_t key1, key2, key3, key4, key5;
 
     key1 = 123456789;
@@ -62,7 +68,10 @@ int main(int argc, int **argv)
     p_num = atoi((char *)argv[1]);
     t_num = atoi((char *)argv[2]);
 
-
+    //alloc dyn mem for arrays
+    thread = (pthread_t *)malloc(t_num * sizeof(pthread_t));
+    thread_numb = (int *)malloc(t_num * sizeof(int));
+    processIDs = (int *)malloc(p_num * sizeof(int));
 
     //setting up shared memory for global vars
     if ((shmid1 = shmget(key1, sizeof(data), IPC_CREAT | 0666)) < 0)
@@ -126,13 +135,15 @@ int main(int argc, int **argv)
         exit(1);
     }
 
+    //initalizing variables for LIFO queue
     *buffer_index = 0;
 
-    // pthread_mutex_init(buffer_mutex, NULL);
+    //initalize buffer mutex
     sem_init(buffer_mutex, // sem_t *sem
              1,            // int pshared. 0 = shared between threads of process,  1 = shared between processes
              1);
 
+    //init our CSemaphores
     data_init(full_sem, SIZE);
     data_init(empty_sem, 0);
 
@@ -152,107 +163,81 @@ int main(int argc, int **argv)
     srand(getpid());
 
     //forking processes
-    int rand_jobs, rand_bytes;
+    int rand_jobs, rand_bytes, pid;
     for (i = 0; i < p_num; i++)
     {
-        //enter new child process, start of producer
-        if (fork() == 0)
+        pid = fork();
+        produced++;
+        //enter new child process, start of producer function
+        if (pid == 0)
         {
             srand(getpid());
             rand_jobs = printRandoms(1, 25, 1);
-            // rand_jobs = (rand() % (25)) + 1;
-            printf("rand_jobs: %d \n", rand_jobs);
+            // printf("rand_jobs: %d \n", rand_jobs);
 
-            int wait;
             int j = 0;
-            // while (j++ < rand_jobs)
             for (j = 0; j < rand_jobs; j++)
             {
                 rand_bytes = (rand() % (900 + 1)) + 100;
-                printf("rand bytes: %d \n", rand_bytes);
+                // printf("rand bytes: %d \n", rand_bytes);
                 job_info new_info;
                 new_info.pid = getpid();
                 new_info.bytes = rand_bytes;
-                gettimeofday(&(new_info.stopwatch), NULL);
-                // sleep(rand() % 10);
+                gettimeofday(&(new_info.stopwatch), NULL); //get current time
 
-                // sem_wait(&full_sem); // sem=0: wait. sem>0: go and decrement it
-                /* possible race condition here. After this thread wakes up,
-                another thread could aqcuire mutex before this one, and add to list.
-                Then the list would be full again
-                and when this thread tried to insert to buffer there would be
-                a buffer overflow error */
-
-                printf("csem: %d \n", full_sem->val);
-                printf("csem: %d \n", empty_sem->val);
+                // printf("csem: %d \n", full_sem->val);
+                // printf("csem: %d \n", empty_sem->val);
                 Pc(full_sem);
 
                 sem_wait(buffer_mutex); /* protecting critical section */
-                insertbuffer(new_info);
+                insertbuffer(new_info); //place job into buffer
                 sem_post(buffer_mutex);
 
-                Vc(empty_sem);
-                // sem_post(&empty_sem); // post (increment) emptybuffer semaphore
+                Vc(empty_sem); // post (increment) emptybuffer semaphore
                 printf("Producer <%d> added <%d> to buffer\n", i, new_info.bytes);
-                wait = printRandoms(1, 10, 1);
-                // usleep(wait*100000);
-                usleep(new_info.bytes*1000);
+                usleep(new_info.bytes * 1000);
             }
 
-            printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
+            // printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
             exit(0);
+        }
+
+        else
+        {
+            processIDs[i] = pid;
+            // printf("produced pid: %d, prod var: %d \n", pid, produced);
         }
 
         // wait(NULL);
     }
 
-    for (i = 0; i < p_num; i++) // loop will run n times (n=5)
+    signal(SIGINT, sig_handler); //Register the signal handler
+
+    //wait for each child process to exit
+    for (i = 0; i < p_num; i++)
         wait(NULL);
 
     //set flag to allow threads to exit when queue
     exit_flag = 1;
 
-    while (1)
-    {
-        if (*buffer_index == 0)
-        {
-            // printf("entered break for thread %d, flag = %d\n", *thread_numb, exit_flag);
-            int h;
-            for (h = 0; h < t_num; h++)
-            {
-                pthread_cancel(thread[h]);
-            }
-            // pthread_exit(0);
-            break;
-        }
-    }
-
-    // sem_wait(&(buffer->emptyGate));
-    // sem_wait(&(buffer->mutex));
-    // sem_post(&(buffer->mutex));
-    // sem_post(&(buffer->emptyGate));
+    //polling while loop to wait up there are no more jobs on queue, thus threads are done and can be cancelled
+    isEmpty();
 
     for (i = 0; i < t_num; i++)
         pthread_join(thread[i], NULL);
 
-    int k;
+    // int k;
     // for(k=0;k<SIZE;k++)
     //     printf("element %02d, bytes: %04d, pid: %04d \n",k,buffer[k].bytes,buffer[k].pid);
 
+    printf("############################################################\n");
     // printf("flag: %d, index: %d \n", exit_flag, *buffer_index);
-    printf("total_jobs: %d \n", total_jobs);
-    printf("total wait time: %f \n", total_wait);
+    printf("total jobs placed on to queue: %d \n", total_jobs);
+    printf("total jobs removed from queue: %d \n", total_jobs);
+    // printf("total wait time: %f \n", total_wait);
     printf("All jobs completed, average waiting time: %f seconds \n", total_wait / total_jobs);
 
-
-
-    sem_destroy(buffer_mutex);
-
-    shmctl(shmid1, IPC_RMID, NULL);
-    shmctl(shmid2, IPC_RMID, NULL);
-    shmctl(shmid3, IPC_RMID, NULL);
-    shmctl(shmid4, IPC_RMID, NULL);
-    shmctl(shmid5, IPC_RMID, NULL);
+    free_all();
 
     ///////////////////////////////////////////////////////////////
     gettimeofday(&tv2, NULL);
@@ -303,18 +288,6 @@ void *consumer(void *thread_n)
 
     while (1)
     {
-        // if(exit_flag && *buffer_index == 0){
-        //     printf("entered break for thread %d, flag = %d\n", thread_numb, exit_flag);
-        //     int h;
-        //     for(h=0;h<t_num;h++){
-        //         if(h==thread_numb)
-        //             continue;
-        //         pthread_cancel(thread[h]);
-        //     }
-        //     pthread_exit(0);
-        //     break;
-        // }
-        // sem_wait(&empty_sem);
         Pc(empty_sem);
 
         /* there could be race condition here, that could cause
@@ -329,10 +302,68 @@ void *consumer(void *thread_n)
         sem_post(buffer_mutex);
 
         Vc(full_sem);
-        // sem_post(&full_sem); // post (increment) fullbuffer semaphore
-        printf("Consumer %d dequeue %d bytes, %d pid from buffer\n", thread_numb, ret.bytes, ret.pid);
-        printf("Buffer index: %d \n", *buffer_index);
+        printf("Consumer <%d> dequeue <%d,%d> from buffer\n", thread_numb, ret.pid, ret.bytes);
+        // printf("Buffer index: %d \n", *buffer_index);
         usleep(ret.bytes * 1000);
     }
     pthread_exit(0);
+}
+
+void isEmpty()
+{
+
+    while (1)
+    {
+        if (*buffer_index == 0)
+        {
+            // printf("entered break for thread %d, flag = %d\n", *thread_numb, exit_flag);
+            int h;
+            for (h = 0; h < t_num; h++)
+            {
+                pthread_cancel(thread[h]);
+            }
+            // pthread_exit(0);
+            break;
+        }
+    }
+};
+
+void free_all()
+{
+
+    free(thread_numb);
+    free(thread);
+    free(processIDs);
+
+    sem_destroy(&full_sem->gate);
+    sem_destroy(&full_sem->mutex);
+    sem_destroy(&empty_sem->gate);
+    sem_destroy(&empty_sem->mutex);
+    sem_destroy(buffer_mutex);
+
+    shmctl(shmid1, IPC_RMID, NULL);
+    shmctl(shmid2, IPC_RMID, NULL);
+    shmctl(shmid3, IPC_RMID, NULL);
+    shmctl(shmid4, IPC_RMID, NULL);
+    shmctl(shmid5, IPC_RMID, NULL);
+}
+
+//Simple signal handler to catch SIGINT/Ctrl+C
+void sig_handler(int sig)
+{
+    int i;
+    printf("\nSIGINT caught, terminating program...\n");
+    for (i = 0; i < produced; i++) //Kill and clean up the producer processes
+    {
+        kill(processIDs[i], SIGINT);
+        waitpid(processIDs[i], NULL, 1);
+    }
+    for (i = 0; i < t_num; i++) //Shut down and clean up the consumer threads
+    {
+        pthread_cancel(thread[i]);
+        pthread_join(thread[i], NULL);
+    }
+    free_all();
+
+    exit(1); //Quit the program, do not return to main
 }

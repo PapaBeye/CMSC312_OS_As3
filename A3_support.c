@@ -1,8 +1,10 @@
 //***************************************************************************
 //	Engineer:		Omar Amr,Papa Beye, McCrae Smith
 //	Project:		CMSC 312 Assignment 2
-//	Date:			03/26/2021
+//	Date:			04/23/2021
+//  Description:    Support file that holds the CSem implmentation and buffer element struct and supplemental functions
 //***************************************************************************
+
 #ifndef supported
 #define supported
 
